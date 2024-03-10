@@ -1,1 +1,1 @@
-BOnjour à tous, ceci est notre projet de 4A d'analyse de données sur le jeu de données Vélib. Nous nous proposons d'explorer les données, les traiter, faire du clustering sur nos données etc. On se propose de faire un notebook en Pyhton et un autre en R.
+Bonjour à tous, ceci est notre projet de 4A d'analyse de données sur le jeu de données Vélib. Nous nous proposons d'explorer les données, les traiter, faire du clustering sur nos données etc. On se propose de faire un notebook en Pyhton et un autre en R.
