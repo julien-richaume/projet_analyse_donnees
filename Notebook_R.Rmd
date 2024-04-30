@@ -9,10 +9,12 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r}
+library(ggforce)
 library(ggplot2)
 library(reshape2)
 library(plotly)
 library(corrplot)
+library(FactoMineR)
 library(factoextra)
 library(gridExtra)
 library(cluster)
@@ -797,102 +799,96 @@ library(mclust)
 velib_PCA_reduced = C[,1:5]
 gmm_model <- Mclust(velib_PCA_reduced, G = K)
 
-df_gmm <- velib_PCA_reduced
-df_gmm$cluster = as.factor(predict(gmm_model)$classification)
-```
-
-```{r}
-silhouette(predict(gmm_model))
+#df_gmm <- velib_PCA_reduced
+#df_gmm$cluster<- as.factor(predict(gmm_model)$classification)
 ```
 
 
 ```{r}
+resBICall = mclustBIC(velib_PCA_reduced, G=2:20)
+summary(resBICall)
+
+resBICall
+
+resBICall = Mclust(velib_PCA_reduced, G=2:20)
+summary(resBICall)
+
+fviz_mclust(resBICall, what="BIC")
+```
+
+
+```{r}
+options(repr.plot.width = 13, repr.plot.height = 6)
+
+K = length(resBICall$parameters$mean[,][1,])
+model_name = resBICall$parameters$variance$modelName
 palette <- colorRampPalette(c("red", "blue", "green", "yellow"))(K)
-palette
 
-ggplot(df_gmm, aes(x=pc1, y=pc2, col=cluster))+
-  geom_point() + 
-  scale_color_manual(values = palettes) +
-  labs(title = "GMM Clusters") +
-  theme_minimal()
+resBIC = Mclust(velib_PCA_reduced, G=K, modelNames = model_name)
+fviz_cluster(resBIC, data=velib_PCA_reduced, ellipse.type="norm", geom="point")
+
+# --- #
+
+aux = data.frame(
+    label = paste("Cluster", resBIC$classification, sep=""), 
+    proba = apply(resBIC$z, 1, max))
+
+ggplot(aux, aes(x=label, y=proba)) + 
+    geom_boxplot(colour=palette, fill=palette, alpha=.2)
 ```
 
 ```{r}
-k_max = 15
+resICLall_1 = mclustICL(velib_PCA_reduced, G=2:20)
+summary(resICLall_1)
 
-bic = data.frame()
+# --- #
 
-for (i in 1:k_max){
-  gmm_model <- Mclust(velib_PCA_reduced, G = i)
-  bic = rbind(bic, c(i, gmm_model$bic))
-}
-bic <- bic %>% rename(
-      K = X1, 
-      BIC = X.33292.0596572221)
-ggplot(bic, aes(x=K, y=BIC)) +
-  geom_point()
+resICLall_2 = Mclust(velib_PCA_reduced, G=2:20)
+summary(resICLall_2)
 ```
+# note : resICLall_2 ne montre pas le modèle idéal pour l'ICL mais bien celui pour le BIC, choisir celui qui apparaît sur le plot ci-dessous.
+```{r}
+plot(resICLall_1)
+```
+
 
 ```{r}
-velib_PCA_scaled <- scale(velib_PCA_reduced)
+options(repr.plot.width = 13, repr.plot.height = 6)
+
+K = 7
+model_name = "VVE"
+palette <- colorRampPalette(c("red", "blue", "green", "yellow"))(K)
+
+resICL = Mclust(velib_PCA_reduced, G=K, modelNames=model_name)
+fviz_cluster(resICL, data=velib_PCA_reduced, ellipse.type="norm", geom="point")
+
+# --- #
+
+aux = data.frame(
+    label = paste("Cl", resICL$classification, sep=""), 
+    proba = apply(resICL$z, 1, max))
+
+p1 = ggplot(aux, aes(x=label, y=proba)) + geom_boxplot(colour=palette, fill=palette, alpha=.4)
+p2 = fviz_cluster(resICL, data=velib_PCA_reduced, ellipse.type="norm", geom="point") +
+    ggtitle("") + theme(legend.position = "none")
+
+grid.arrange(p1, p2, ncol = 2)
 ```
+
+# Silhouette score ? Pas trouvé comment faire en R, mais on n'a pas fait en TP je crois?
+
+### MCA
 
 ```{r}
-silhouette_score = data.frame()
-
-for (i in 1:k_max){
-  gmm_predicted <- predict(Mclust(velib_PCA_reduced, G = i))
-  silhouette_score = rbind(silhouette_score, c(i, silhouette(gmm_predicted$classification, velib_PCA_scaled)))
-}
-
-head(silhouette_score)
-
-silhouette_score <- silhouette_score %>% rename(
-      K = X1L, 
-      Silhouette = X.33292.0596572221)
-ggplot(silhouette_score, aes(x=K, y=Silhouette)) +
-  geom_point()
-
+loading
 ```
+```{r}
+loading_hill <- loading
+loading_hill$hill <- Coord$bonus
+```
+
 
 ```{r}
-# Define the draw_ellipse function
-draw_ellipse <- function(mean, covariance, alpha, col = "#CCCCCC") {
-  eig <- eigen(covariance)
-  U <- eig$vectors
-  s <- sqrt(eig$values)
-  angle <- atan2(U[2, 1], U[1, 1]) * (180 / pi)
-  width <- 2 * s[1]
-  height <- 2 * s[2]
-  
-  t <- seq(0, 2 * pi, length.out = 100)
-  x <- mean[1] + width * cos(t) * cos(angle) - height * sin(t) * sin(angle)
-  y <- mean[2] + width * cos(t) * sin(angle) + height * sin(t) * cos(angle)
-  
-  lines(x, y, col = col, lwd = 2)
-  polygon(x, y, col = adjustcolor(col, alpha), border = NA)
-}
-
-plotGMM <- function(gmm, data, n_clusters = 6) {
-  gmm$cl <- predict(gmm, data)$classification
-  clusters_gmm <- gmm$cl
-  
-  plot(data[,1], data[,2], col = clusters_gmm + 1, pch = 20, cex = 1.5)
-  
-  for (i in 1:n_clusters) {
-    mean <- gmm$parameters$mean[, i][1:2]
-    covariance <- gmm$parameters$variance$sigma[, , i][1:2,1:2]
-    weight <- gmm$parameters$pro[i]
-    draw_ellipse(mean, covariance, weight, col = palette[i])
-  }
-}
-
-
-K <- 8
-
-# Fit Gaussian Mixture Model
-gmm <- Mclust(velib_PCA_reduced, G = K)
-
-# Plot GMM
-plotGMM(gmm, velib_PCA_reduced, K)
+res.mca <- MCA(loading_hill, graph = FALSE)
 ```
+
