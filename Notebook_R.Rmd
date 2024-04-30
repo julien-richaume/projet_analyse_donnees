@@ -6,6 +6,7 @@ date: "2024-04-18"
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+R.home()
 ```
 
 ```{r}
@@ -488,7 +489,7 @@ df_clusters <- data.frame(
 )
 
 fig_cluster_pca <- plot_ly(data = df_clusters, x = ~longitude, y = ~latitude, type = "scattermapbox",
-                           color = ~cluster, colors = c("red", "blue","pink"),
+                           color = ~cluster, colors = c("red", "blue","chartreuse2"),
                            marker = list(size = 15), zoom = 10, text = ~cluster,
                            hoverinfo = "text") %>%
   layout(mapbox = list(center = list(lon = paris_lon, lat = paris_lat),
@@ -508,7 +509,7 @@ df_clusters <- data.frame(
 )
 
 fig_cluster_raw <- plot_ly(data = df_clusters, x = ~longitude, y = ~latitude, type = "scattermapbox",
-                           color = ~cluster, colors = c("red", "blue", "pink"),
+                           color = ~cluster, colors = c("red", "blue", "chartreuse2"),
                            marker = list(size = 15), zoom = 10, text = ~cluster,
                            hoverinfo = "text") %>%
                    layout(mapbox = list(center = list(lon = paris_lon, lat = paris_lat),
@@ -526,11 +527,11 @@ bonus <- Coord[, 3]
 df_bonus <- data.frame(
   latitude = Position[,2],
   longitude = Position[,1],
-  bonus = bonus
+  bonus = as.factor(bonus)
 )
 
 fig_alt <- plot_ly(data = df_bonus, x = ~longitude, y = ~latitude, type = "scattermapbox",
-                   color = ~bonus, colors = c("goldenrod", "pink"),
+                   color = ~bonus, colors = c("cornflowerblue", "gold"),
                    marker = list(size = 15), zoom = 10, text = ~bonus,
                    hoverinfo = "text") %>%
            layout(mapbox = list(center = list(lon = paris_lon, lat = paris_lat),
@@ -629,7 +630,7 @@ title("Dendrogram with Ward linkage")
 On voit bien les 4 clusters
 
 ```{r}
-palette <- colorRampPalette(c("red", "blue", "green", "yellow"))(K)
+palette <- colorRampPalette(c("cornflowerblue", "gold","chartreuse2","red"))(K)
 palette
 
 
@@ -664,7 +665,7 @@ grid.arrange(g1,g2)
 ```{r}
 #On fait sur loading
 
-palette <- colorRampPalette(c("red", "blue", "green", "yellow"))(K)
+palette <- colorRampPalette(c("cornflowerblue", "gold","chartreuse2","red"))(K)
 palette
 
 # Clustering sur un échantillon réduit
@@ -744,11 +745,11 @@ heatmap(cm, main="Matrice de confusion",
 df_clusters_pca <- data.frame(
   latitude = Position[,2],
   longitude = Position[,1],
-  cluster = as.integer(clusters_ac)
+  cluster = as.factor(clusters_ac)
 )
 
 fig_cluster_pca2 <- plot_ly(data = df_clusters_pca, x = ~longitude, y = ~latitude, type = "scattermapbox",
-                    color = ~cluster, colors = c("blue", "yellow","green","pink"),
+                    color = ~cluster, colors = c("cornflowerblue", "gold","chartreuse2","red"),
                     marker = list(size = 15), zoom = 10, text = paste("Loading:", round(data24h, 2)),
                     hoverinfo = "text") %>%
             layout(mapbox = list(center = list(lon = paris_lon, lat = paris_lat),
@@ -769,11 +770,11 @@ clusters_ac_raw_sorted <- result[[2]]
 df_clusters_pca <- data.frame(
   latitude = Position[,2],
   longitude = Position[,1],
-  cluster = as.integer(clusters_ac_raw_sorted)
+  cluster = as.factor(clusters_ac_raw_sorted)
 )
 
 fig_cluster_ac_raw <- plot_ly(data = df_clusters_pca, x = ~longitude, y = ~latitude, type = "scattermapbox",
-                    color = ~cluster, colors = c("blue", "yellow","green","pink"),
+                    color = ~cluster, colors = c("cornflowerblue", "gold","chartreuse2","red"),
                     marker = list(size = 15), zoom = 10, text = paste("Loading:", round(data24h, 2)),
                     hoverinfo = "text") %>%
             layout(mapbox = list(center = list(lon = paris_lon, lat = paris_lat),
@@ -833,8 +834,12 @@ aux = data.frame(
     label = paste("Cluster", resBIC$classification, sep=""), 
     proba = apply(resBIC$z, 1, max))
 
-ggplot(aux, aes(x=label, y=proba)) + 
+p1 = ggplot(aux, aes(x=label, y=proba)) + 
     geom_boxplot(colour=palette, fill=palette, alpha=.2)
+p2 = fviz_cluster(resBIC, data=velib_PCA_reduced, ellipse.type="norm", geom="point") +
+    ggtitle("") + theme(legend.position = "none")
+
+grid.arrange(p1, p2, ncol = 2)
 ```
 
 ```{r}
@@ -857,7 +862,7 @@ options(repr.plot.width = 13, repr.plot.height = 6)
 
 K = 7
 model_name = "VVE"
-palette <- colorRampPalette(c("red", "blue", "green", "yellow"))(K)
+palette <- colorRampPalette(c("red", "blue", "green", "gold"))(K)
 
 resICL = Mclust(velib_PCA_reduced, G=K, modelNames=model_name)
 fviz_cluster(resICL, data=velib_PCA_reduced, ellipse.type="norm", geom="point")
@@ -890,5 +895,9 @@ loading_hill$hill <- Coord$bonus
 
 ```{r}
 res.mca <- MCA(loading_hill, graph = FALSE)
+```
+
+```{r}
+res.ca <- CA(loading_hill, graph = FALSE)
 ```
 
