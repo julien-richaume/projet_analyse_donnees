@@ -17,8 +17,8 @@ library(factoextra)
 library(gridExtra)
 library(cluster)
 library(dendextend)
-
-
+#library(MASS)
+library(dplyr)
 ```
 
 
@@ -75,16 +75,17 @@ abline(v = seq(1, p, length.out = 8), col = "black", lty = "dotted")
 On va parcourir toutes les stations pour afficher leur chargement.
 
 ```{r}
-par(mfrow = c(4, 4), mar = c(4, 4, 2, 1))
+options(repr.plot.width = 5, repr.plot.height = 5)
+par(mfrow = c(4, 4), mar = c(4, 4, 2, 1)+ 0.1, oma = c(0, 0, 4, 0)+ 0.1, mgp = c(3.5, 1.5, 0))
 
 p <- ncol(loading)
-Time <- seq(1, p)
+Time <- 1:p
  
 for (i in 0:3) {
   for (j in 0:3) {
-    index <- 4 * i + j + 1
-    plot(Time, loading_transposed[, index], type = "l", col = "blue", lwd = 2, xlab = "Time", ylab = "Loading",
-         main = Coord$names[index])
+    id_station <- 4 * i + j + 1
+    plot(Time, loading_transposed[, id_station], type = "l", col = "blue", lwd = 2, xlab = "Time", ylab = "Loading",
+         main = Coord$names[id_station])
     abline(v = seq(1, p, length.out = 8), col = "black", lty = "dotted")
   }
 }
@@ -139,6 +140,9 @@ On voit des résultats similaires pour samedi et dimanche, qui ont une tendance 
 
 
 ```{r}
+#On garde les coordonnées géographiques de Paris pour zoomer direct sur la ville
+paris_lon <- 2.3522
+paris_lat <- 48.8566
 
 #On garde les positions des stations
 Position <- Coord[, c(1, 2)]
@@ -157,9 +161,9 @@ a23 <- seq(23, 168, 24)
 
 data6h <- rowMeans(loading[, a6])
 data6h_df <- Coord 
-data6h_df$sixheures=data6h
+data6h_df$loading_six_heures=data6h
 fig6 <-plot_ly(data = data6h_df, x = ~longitude, y = ~latitude, type = "scattermapbox",
-                    color = ~sixheures, colors = c("blue", "yellow"),
+                    color = ~loading_six_heures, colors = c("blue", "yellow"),
                     marker = list(size = 15), zoom = 10, text = paste("Loading:", round(data6h, 2)),
                     hoverinfo = "text") %>%
             layout(mapbox = list(center = list(lon = paris_lon, lat = paris_lat),
@@ -171,10 +175,10 @@ fig6
 
 data12h <- rowMeans(loading[, a12])
 data12h_df <- Coord
-data12h_df$douzeheures=data12h
+data12h_df$loading_douze_heures=data12h
 
 fig12 <-plot_ly(data = data12h_df, x = ~longitude, y = ~latitude, type = "scattermapbox",
-                    color = ~douzeheures, colors = c("blue", "yellow"),
+                    color = ~loading_douze_heures, colors = c("blue", "yellow"),
                     marker = list(size = 15), zoom = 10, text = paste("Loading:", round(data12h, 2)),
                     hoverinfo = "text") %>%
             layout(mapbox = list(center = list(lon = paris_lon, lat = paris_lat),
@@ -186,9 +190,9 @@ fig12
 
 data23h <- rowMeans(loading[, a23])
 data23h_df <- Coord
-data23h_df$vingt_troisheures=data23h
+data23h_df$loading_vingt_trois_heures=data23h
 fig23 <- plot_ly(data = data23h_df, x = ~longitude, y = ~latitude, type = "scattermapbox",
-                    color = ~vingt_troisheures, colors = c("blue", "yellow"),
+                    color = ~loading_vingt_trois_heures, colors = c("blue", "yellow"),
                     marker = list(size = 15), zoom = 10, text = paste("Loading:", round(data23h, 2)),
                     hoverinfo = "text") %>%
             layout(mapbox = list(center = list(lon = paris_lon, lat = paris_lat),
@@ -200,11 +204,7 @@ fig23
 
 
 ```{r}
-#On garde les coordonnées géographiques de Paris pour zoomer direct sur la ville
-paris_lon <- 2.3522
-paris_lat <- 48.8566
-
-#On calculer la moyenne des données de chargement pour chaque ligne
+#On calcule la moyenne des données de chargement pour chaque ligne
 data24h <- rowMeans(loading)
 
 figbonus <- plot_ly(data = Coord, x = ~longitude, y = ~latitude, type = "scattermapbox",
@@ -225,6 +225,7 @@ hist(unlist(loading), breaks = 64, main = "Histogramme des données de chargemen
 
 
 ```
+
 ```{r}
 dim(loading)
 print(168*1189)
@@ -288,7 +289,7 @@ barplot(cumsum(pca$sdev^2 / sum(pca$sdev^2)),
 #On trace la limite de 70% de variance expliquée
 abline(h = 0.7, col = "red")
 ```
-Pour expliquer au moins 70% de variance, il faut garder 4 composantes principales.
+Pour expliquer au moins 70% de variance, il faut garder 4 composantes principales. Note : Pourquoi seulement 70%?
 
 ```{r}
 #Projection des données sur les composantes principales
@@ -363,7 +364,10 @@ text(pc1, pc2, ".", cex = 1)
 
 
 ```{r}
-velib_PCA_reduced= C[,1:3]
+#print(C[,1:20])
+#print(velib_PCA_reduced)
+velib_PCA_reduced= C[,1:5] #  
+#print(velib_PCA_reduced)
 ```
 
 
@@ -382,10 +386,9 @@ ggplot() +
 
 
 ```
-
 ```{r}
 fviz_nbclust(velib_PCA_reduced, stats::kmeans, method = "silhouette")
-
+fviz_nbclust(velib_PCA_reduced, stats::kmeans, method = "wss")
 ```
 Pour silhouette on doit prendre le max -> 3 clusters
 
@@ -455,8 +458,7 @@ grid()
 C'est normal d'avoir quasiment les mêmes graphes car en projetant sur les données réduites on a gardé les 3 premières composantes, qui permettent d'expliquer la majorité des données
 
 
-
-Matrice de confusions pour comparer nos clusters:
+Matrices de confusion pour comparer nos clusters:
 ```{r}
 #on calcule la matrice de confusion
 cm <- table(clusters_pca, clusters_raw)
@@ -536,7 +538,7 @@ fig_alt
 
 ```
 
-Deja fait non ???
+Deja fait non ??? -> oui, pourquoi c'est la??
 
 ## Que valent ces 4 clusters Kmeans?
 
@@ -658,9 +660,7 @@ grid.arrange(g1,g2)
 ```
 
 ```{r}
-
 #On fait sur loading
-
 
 palette <- colorRampPalette(c("red", "blue", "green", "yellow"))(K)
 palette
@@ -787,3 +787,112 @@ fig_cluster_ac_raw
 Pareil ici peu de différences dans l'ensemble, sauf en périphérie !
 
 # Gaussian Mixture Models
+
+```{r}
+library(mclust)
+```
+
+
+```{r}
+velib_PCA_reduced = C[,1:5]
+gmm_model <- Mclust(velib_PCA_reduced, G = K)
+
+df_gmm <- velib_PCA_reduced
+df_gmm$cluster = as.factor(predict(gmm_model)$classification)
+```
+
+```{r}
+silhouette(predict(gmm_model))
+```
+
+
+```{r}
+palette <- colorRampPalette(c("red", "blue", "green", "yellow"))(K)
+palette
+
+ggplot(df_gmm, aes(x=pc1, y=pc2, col=cluster))+
+  geom_point() + 
+  scale_color_manual(values = palettes) +
+  labs(title = "GMM Clusters") +
+  theme_minimal()
+```
+
+```{r}
+k_max = 15
+
+bic = data.frame()
+
+for (i in 1:k_max){
+  gmm_model <- Mclust(velib_PCA_reduced, G = i)
+  bic = rbind(bic, c(i, gmm_model$bic))
+}
+bic <- bic %>% rename(
+      K = X1, 
+      BIC = X.33292.0596572221)
+ggplot(bic, aes(x=K, y=BIC)) +
+  geom_point()
+```
+
+```{r}
+velib_PCA_scaled <- scale(velib_PCA_reduced)
+```
+
+```{r}
+silhouette_score = data.frame()
+
+for (i in 1:k_max){
+  gmm_predicted <- predict(Mclust(velib_PCA_reduced, G = i))
+  silhouette_score = rbind(silhouette_score, c(i, silhouette(gmm_predicted$classification, velib_PCA_scaled)))
+}
+
+head(silhouette_score)
+
+silhouette_score <- silhouette_score %>% rename(
+      K = X1L, 
+      Silhouette = X.33292.0596572221)
+ggplot(silhouette_score, aes(x=K, y=Silhouette)) +
+  geom_point()
+
+```
+
+```{r}
+# Define the draw_ellipse function
+draw_ellipse <- function(mean, covariance, alpha, col = "#CCCCCC") {
+  eig <- eigen(covariance)
+  U <- eig$vectors
+  s <- sqrt(eig$values)
+  angle <- atan2(U[2, 1], U[1, 1]) * (180 / pi)
+  width <- 2 * s[1]
+  height <- 2 * s[2]
+  
+  t <- seq(0, 2 * pi, length.out = 100)
+  x <- mean[1] + width * cos(t) * cos(angle) - height * sin(t) * sin(angle)
+  y <- mean[2] + width * cos(t) * sin(angle) + height * sin(t) * cos(angle)
+  
+  lines(x, y, col = col, lwd = 2)
+  polygon(x, y, col = adjustcolor(col, alpha), border = NA)
+}
+
+plotGMM <- function(gmm, data, n_clusters = 6) {
+  gmm$cl <- predict(gmm, data)$classification
+  clusters_gmm <- gmm$cl
+  
+  plot(data[,1], data[,2], col = clusters_gmm + 1, pch = 20, cex = 1.5)
+  
+  for (i in 1:n_clusters) {
+    mean <- gmm$parameters$mean[, i][1:2]
+    covariance <- gmm$parameters$variance$sigma[, , i][1:2,1:2]
+    weight <- gmm$parameters$pro[i]
+    draw_ellipse(mean, covariance, weight, col = palette[i])
+  }
+}
+
+
+K <- 8
+
+# Fit Gaussian Mixture Model
+gmm <- Mclust(velib_PCA_reduced, G = K)
+
+# Plot GMM
+plotGMM(gmm, velib_PCA_reduced, K)
+```
