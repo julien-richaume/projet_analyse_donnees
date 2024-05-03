@@ -1,0 +1,1049 @@
+---
+title: "Notebook_R"
+output: html_document
+date: "2024-04-18"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+R.home()
+```
+
+```{r}
+library(ggforce)
+library(ggplot2)
+library(reshape2)
+library(plotly)
+library(corrplot)
+library(FactoMineR)
+library(factoextra)
+library(gridExtra)
+library(cluster)
+library(dendextend)
+#library(MASS)
+library(dplyr)
+```
+
+
+```{r}
+loading <- read.csv("data/velibLoading.csv", sep = " ")
+head(loading)
+```
+
+
+```{r}
+Coord <- read.csv("data/velibCoord.csv", sep = " ")
+head(Coord)
+
+```
+
+On cherche maintenant à voir si les deux tableaux contiennent des données manquantes.
+```{r}
+print('--Loading--')
+any(is.null(loading)) 
+#Nous n'avons pas de données manquantes dans les colonnes de loading 
+print('--Coord--')
+any(is.null(Coord))
+#pareil pour coord
+```
+On cherche également à voir si certaines données sont duppliquées dans les deux df.
+
+```{r}
+print('--Loading--')
+any(duplicated(loading)) 
+#Nous n'avons pas de données dupliquées dans les colonnes de loading 
+print('--Coord--')
+any(duplicated(Coord))
+#pareil pour coord
+```
+
+```{r}
+#On affiche le chargement de la 1ère station
+
+
+#On créé une séquence de temps
+p <- ncol(loading)
+Time <- seq(1, p)
+
+#On garde seulement la 1ère station
+loading_transposed <- t(loading)
+first_column <- loading_transposed[, 1]
+
+plot(Time, first_column, type = "l", lwd = 2, col = "blue", xlab = "Time", ylab = "Loading", main = "Chargement de la 1ère station")
+abline(v = seq(1, p, length.out = 8), col = "black", lty = "dotted")
+
+```
+## Analyse Descriptive
+
+On va parcourir toutes les stations pour afficher leur chargement.
+
+```{r}
+options(repr.plot.width = 5, repr.plot.height = 5)
+par(mfrow = c(4, 4), mar = c(4, 4, 2, 1)+ 0.1, oma = c(0, 0, 4, 0)+ 0.1, mgp = c(3.5, 1.5, 0))
+
+p <- ncol(loading)
+Time <- 1:p
+ 
+for (i in 0:3) {
+  for (j in 0:3) {
+    id_station <- 4 * i + j + 1
+    plot(Time, loading_transposed[, id_station], type = "l", col = "blue", lwd = 2, xlab = "Time", ylab = "Loading",
+         main = Coord$names[id_station])
+    abline(v = seq(1, p, length.out = 8), col = "black", lty = "dotted")
+  }
+}
+
+```
+
+```{r}
+
+loading_df <- data.frame(Time = 1:nrow(loading), loading)
+
+bp <- boxplot(as.matrix(loading), 
+              col = "white", border = "black", median.col = "red",
+              staplewex = 0, notch = FALSE, outline = FALSE,
+              names = rep("", ncol(loading)))
+
+abline(v = seq(1, ncol(loading), length.out = 8), col = "purple", lty = "dotted")
+
+
+title <- "Boxplots"
+ticks <- seq(0, 168, by = 5)
+labels <- seq(0, 168, by = 5)
+title(main = title, cex.main = 1.25)
+axis(1, at = ticks, labels = labels, cex.axis = 1.25)
+mtext("Time", side = 1, line = 2, cex = 1.5)
+mtext("Loading", side = 2, line = 2, cex = 1.5)
+
+```
+## Chargement par heure moyen par jour
+
+```{r}
+MoyHeures <- colSums(loading) / 1189
+
+
+jours <- c("Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche")
+
+MoyHeuresPJours <- matrix(MoyHeures, nrow = 24)
+MoyHeuresPJours <- t(aperm(MoyHeuresPJours, c(2, 1)))
+
+plot(1:24, MoyHeuresPJours[,1], type = "l", xlab = "Heures", ylab = "Loading", 
+     col = rainbow(7)[1], ylim = range(MoyHeuresPJours), 
+     main = "Moyenne de chargement par heure pour chaque jour de la semaine")
+
+for (i in 2:7) {
+  lines(1:24, MoyHeuresPJours[,i], type = "l", col = rainbow(7)[i])
+}
+legend("topright", legend = jours, col = rainbow(7), lwd = 2, cex =0.8, bty = "n")
+
+
+```
+On voit des résultats similaires pour samedi et dimanche, qui ont une tendance différente des autres jours de la semaine.
+
+
+
+```{r}
+#On garde les coordonnées géographiques de Paris pour zoomer direct sur la ville
+paris_lon <- 2.3522
+paris_lat <- 48.8566
+
+#On garde les positions des stations
+Position <- Coord[, c(1, 2)]
+
+#On garde les heures à afficher
+a6 <- seq(6, 168, 24)
+a12 <- seq(12, 168, 24)
+a23 <- seq(23, 168, 24)
+
+#On calcule les moyennes de chargement pour chaque heure
+
+
+#----------------6h---------------------------------
+
+
+
+data6h <- rowMeans(loading[, a6])
+data6h_df <- Coord 
+data6h_df$loading_six_heures=data6h
+fig6 <-plot_ly(data = data6h_df, x = ~longitude, y = ~latitude, type = "scattermapbox",
+                    color = ~loading_six_heures, colors = c("blue", "gold"),
+                    marker = list(size = 15), zoom = 10, text = paste("Loading:", round(data6h, 2)),
+                    hoverinfo = "text") %>%
+            layout(mapbox = list(center = list(lon = paris_lon, lat = paris_lat),
+                                 zoom = 10, style = "carto-positron"))
+fig6
+
+
+#----------------12h---------------------------------
+
+data12h <- rowMeans(loading[, a12])
+data12h_df <- Coord
+data12h_df$loading_douze_heures=data12h
+
+fig12 <-plot_ly(data = data12h_df, x = ~longitude, y = ~latitude, type = "scattermapbox",
+                    color = ~loading_douze_heures, colors = c("blue", "gold"),
+                    marker = list(size = 15), zoom = 10, text = paste("Loading:", round(data12h, 2)),
+                    hoverinfo = "text") %>%
+            layout(mapbox = list(center = list(lon = paris_lon, lat = paris_lat),
+                                 zoom = 10, style = "carto-positron"))
+fig12
+
+#----------------23h---------------------------------
+
+
+data23h <- rowMeans(loading[, a23])
+data23h_df <- Coord
+data23h_df$loading_vingt_trois_heures=data23h
+fig23 <- plot_ly(data = data23h_df, x = ~longitude, y = ~latitude, type = "scattermapbox",
+                    color = ~loading_vingt_trois_heures, colors = c("blue", "gold"),
+                    marker = list(size = 15), zoom = 10, text = paste("Loading:", round(data23h, 2)),
+                    hoverinfo = "text") %>%
+            layout(mapbox = list(center = list(lon = paris_lon, lat = paris_lat),
+                                 zoom = 10, style = "carto-positron"))
+fig23
+
+
+```
+
+
+```{r}
+#On calcule la moyenne des données de chargement pour chaque ligne
+data24h <- rowMeans(loading)
+
+
+figbonus <- plot_ly(data = Coord, x = ~longitude, y = ~latitude, type = "scattermapbox",
+                    color = ~as.factor(bonus), colors = c("cornflowerblue", "gold"),
+                    marker = list(size = 15), zoom = 10, text = paste("Loading:", round(data24h, 2)),
+                    hoverinfo = "text") %>%
+            layout(mapbox = list(center = list(lon = paris_lon, lat = paris_lat),
+                                 zoom = 10, style = "carto-positron"))
+
+figbonus
+
+```
+
+
+```{r}
+hist(unlist(loading), breaks = 64, main = "Histogramme des données de chargement", 
+     xlab = "Valeurs de chargement", ylab = "Fréquence")
+
+
+```
+
+```{r}
+dim(loading)
+print(168*1189)
+```
+On a 1189 stations pour 168h de prélèvement de chargement donc cohérent d'avoir une fréquence de 25000 en max
+
+```{r}
+#On calcule la matrice de corrélation 
+x <- as.matrix(loading)
+dim(x)
+correlation <- cor(x)
+for (i in as.integer(nrow(correlation)/24))
+{
+    g1=plot(correlation[i*24,], type='l')
+}
+```
+```{r}
+correlation_subset <- correlation[1:24, 1:24]
+corrplot(correlation_subset, method = "color", type = "upper")
+```
+```{r}
+selected_columns <- c("Lun.12", "Lun.13", "Mar.12", "Mar.13", "Ven.12", "Ven.13", "Lun.18", "Ven.18")
+
+pairs(loading[selected_columns], 
+      pch = 20,               
+      col = "skyblue",           
+      cex = 0.3,              
+      gap = 0.2)                
+
+
+```
+# PCA
+
+## Implémentation de la PCA
+
+```{r}
+loading_scaled <- scale(loading)
+
+#Analyse en composantes principales (ACP)
+pca <- prcomp(loading_scaled)
+nb_components=25
+
+#Variance expliquée par composante principale
+barplot(pca$sdev^2 / sum(pca$sdev^2), 
+        main = "Variance expliquée par composante principale",
+        xlab = "Composante principale",
+        ylab = "Variance expliquée",
+        ylim = c(0, 1),
+        xlim = c(1,25))
+
+#Variance expliquée cumulée par composante principale
+barplot(cumsum(pca$sdev^2 / sum(pca$sdev^2)), 
+        main = "Variance expliquée cumulée par composante principale",
+        xlab = "Composante principale",
+        ylab = "Variance expliquée cumulée",
+        ylim = c(0, 1),
+        xlim = c(1,25))
+
+#On trace la limite de 70% de variance expliquée
+abline(h = 0.7, col = "red")
+```
+Pour expliquer au moins 70% de variance, il faut garder 4 composantes principales.
+
+```{r}
+#Projection des données sur les composantes principales
+C <- as.data.frame(pca$x[, 1:nb_components])
+
+boxplot(C, main = "Projection des données sur les composantes principales",
+        xlab = "Composante principale", ylab = "Valeur", col = "skyblue")
+```
+
+## Projection des variables sur le plan d'ACP
+
+
+```{r}
+#Selon la 1ère et la 2ème composantes principales
+
+options(repr.plot.width = 10, repr.plot.height = 8)
+
+grid.arrange(
+    fviz_eig(pca), 
+    fviz_pca_var(pca,axes=c(1,2)),
+    ncol=2
+)
+
+```
+
+```{r}
+#Selon la 1ère et la 3ème composantes principales
+options(repr.plot.width = 10, repr.plot.height = 8)
+
+grid.arrange(
+    fviz_eig(pca), 
+    fviz_pca_var(pca,axes=c(1,3),label='none'),
+    ncol=2
+)
+```
+## Interprétation des dimensions de l'ACP
+
+
+```{r}
+par(mfrow = c(4, 2), mar = c(4, 4, 2, 1))
+
+#On utilise les 168h en x
+u <- seq(0, 168, length.out = 168)
+for (i in 1:4) {
+  plot(u, pca$rotation[, i], type = "l", ylim = c(-0.2, 0.2), xlab = "Longueur d'onde", ylab = "", main = paste("Composante", i))
+  abline(h = 0, col = "red") 
+}
+
+```
+Les 4 plots représentent les coefficients pour les 168 heures, et pour les 4 premières dimensions de l'ACP.
+
+Le premier plot (sur la dimension 1) représente la moyenne des chargements sur toutes les stations au cours des heures.
+
+Le deuxième plot (sur la dimension 2) le contraste entre le jour et la nuit: en pleine journée les coeffs sont positifs alors que la nuit ils sont négatifs.
+
+Le troisième plot (sur la dimension 3) le contraste entre les jours en pleine semaine et weekend.
+
+
+## Projection des individus sur le plan ACP
+
+```{r}
+pc1 <- C[, 1]
+pc2 <- C[, 2]
+
+plot(pc1, pc2, xlim = c(-15, 21), ylim = c(-15, 15), xlab = "Composante principale 1", ylab = "Composante principale 2", main = "Carte factorielle des individus - ACP")
+text(pc1, pc2, ".", cex = 1)  
+```
+
+# Clustering
+
+## Kmeans
+
+
+```{r}
+#print(C[,1:20])
+#print(velib_PCA_reduced)
+velib_PCA_reduced= C[,1:4] #  
+#print(velib_PCA_reduced)
+```
+
+
+```{r}
+inertia <- numeric()
+
+#On calcule l'inertie pour différentes valeurs de k
+for (k in 1:10) {
+  kmeans_model <- kmeans(velib_PCA_reduced, centers = k, nstart = 10)
+  inertia[k] <- kmeans_model$tot.withinss
+}
+ggplot() +
+  geom_point(aes(x = 1:10, y = inertia), color = "blue") +
+  labs(x = "Nombre de clusters (k)", y = "Inertie") +
+  ggtitle("Dispersion de l'inertie en fonction de k")
+
+
+```
+```{r}
+fviz_nbclust(velib_PCA_reduced, stats::kmeans, method = "silhouette")
+fviz_nbclust(velib_PCA_reduced, stats::kmeans, method = "wss")
+```
+Pour silhouette on doit prendre le max -> 3 clusters
+
+```{r}
+options(repr.plot.width = 15, repr.plot.height = 6)
+
+#On teste pour plusieurs k différents
+
+#k=2
+kmeans_model <- kmeans(velib_PCA_reduced, centers=2, nstart=10)
+silhouette_vals <- silhouette(kmeans_model$cluster, dist(velib_PCA_reduced))
+p1=fviz_silhouette(silhouette_vals, main="Silhouette for k=2")
+
+#k=3
+kmeans_model <- kmeans(velib_PCA_reduced, centers=3, nstart=10)
+silhouette_vals <- silhouette(kmeans_model$cluster, dist(velib_PCA_reduced))
+p2=fviz_silhouette(silhouette_vals, main="Silhouette for k=3")
+
+#k=4
+kmeans_model <- kmeans(velib_PCA_reduced, centers=4, nstart=10)
+silhouette_vals <- silhouette(kmeans_model$cluster, dist(velib_PCA_reduced))
+p3=fviz_silhouette(silhouette_vals, main="Silhouette for k=4")
+
+grid.arrange(p1,p2,p3,ncol=3)
+```
+
+De ce que l'on peut observer grâce à la méthode du coude. Et en choisissant le graphe silouhette ayant le moins de valeurs négatives et dont les pics dépassent tous la ligne rouge. On voit que 3 clusters est le meilleur choix. On utilisera donc K = 3 pour la suite.
+
+```{r}
+#On garde donc 3 clusters
+K = 4
+
+palette_kmeans = c("#db564d", "#64ade8", "#5bb55e", "#cdabeb")
+
+#Sur le jeu de données réduit
+kmeans_pca <- kmeans(velib_PCA_reduced, centers = K, nstart = 10)
+
+#On obtient les clusters prédits
+clusters_pca <- kmeans_pca$cluster
+
+```
+
+```{r}
+ggplot() + 
+  geom_point(aes(x=velib_PCA_reduced[,1], y=velib_PCA_reduced[,2], col = as.factor(clusters_pca)))+
+  scale_color_manual(values = palette_kmeans) +
+  labs(x = "1ère composante principale", y = "2nde composante principale", title = paste("Individuals factor map - Couleur selon les clusters k-means - Jeu réduit"))
+```
+
+```{r}
+ggplot() + 
+  geom_point(aes(x=velib_PCA_reduced[,1], y=velib_PCA_reduced[,3], col = as.factor(clusters_pca)))+
+  scale_color_manual(values = palette_kmeans) + 
+  labs(x = "1ère composante principale", y = "3ème composante principale", title = paste("Individuals factor map - Couleur selon les clusters k-means - Jeu réduit"))
+```
+# à commenter
+
+```{r}
+kmeans_raw <- kmeans(loading, centers = K, nstart = 10)
+
+#On obtient les clusters prédits
+clusters_raw <- kmeans_raw$cluster
+
+ggplot() + 
+  geom_point(aes(x=velib_PCA_reduced[,1], y=velib_PCA_reduced[,2], col = as.factor(clusters_raw)))+
+  scale_color_manual(values = palette_kmeans) + 
+  labs(x = "1ère composante principale", y = "2nde composante principale", title = paste("Individuals factor map - Couleur selon les clusters k-means - Jeu complet"))
+```
+
+
+```{r}
+#Sur le jeu de données complet
+
+kmeans_raw <- kmeans(loading, centers = K, nstart = 10)
+
+#On obtient les clusters prédits
+clusters_raw <- kmeans_raw$cluster
+
+plot(velib_PCA_reduced[,1], velib_PCA_reduced[,2], col = clusters_raw, pch = 19, cex = 2,
+     main = "Individuals factor map-Couleur selon les clusters k-means-Jeu complet",
+     xlab = "1ère composante principale", ylab = "2nde composante principale")
+legend("topright", legend = unique(clusters_raw), col = unique(clusters_raw), pch = 19, cex = 1.5)
+grid()
+
+```
+
+C'est normal d'avoir quasiment les mêmes graphes car en projetant sur les données réduites on a gardé les 3 premières composantes, qui permettent d'expliquer la majorité des données
+
+
+Matrices de confusion pour comparer nos clusters:
+```{r}
+#on calcule la matrice de confusion
+cm <- table(clusters_pca, clusters_raw)
+clusters_kmean_raw_sorted <- clusters_raw[order(clusters_pca)]
+
+print(cm)
+image(cm, main = "Matrice de confusion", xlab = "Avec l'algo kmeans PCA", 
+      ylab = "Avec l'algo kmeans sur les données complètes")
+
+axis(1, at = seq_along(unique(clusters_pca)), labels = sort(unique(clusters_pca)))
+axis(2, at = seq_along(unique(clusters_raw)), labels = sort(unique(clusters_raw)))
+```
+
+On trouve des grandes valeurs dans la diagonale, ce qui semble cohérent; on a des résultats similaires sur le jeu de données complet et sur celui réduit (en gardant seulement les 3 composantes principales)
+
+
+Visualiser par cartographie le Kmeans :
+```{r}
+
+df_clusters <- data.frame(
+  latitude = Position[,2],
+  longitude = Position[,1],
+  cluster = as.factor(clusters_pca)
+)
+
+fig_cluster_pca <- plot_ly(data = df_clusters, x = ~longitude, y = ~latitude, type = "scattermapbox",
+                           color = ~cluster, colors = c("red", "blue","chartreuse2"),
+                           marker = list(size = 15), zoom = 10, text = ~cluster,
+                           hoverinfo = "text") %>%
+  layout(mapbox = list(center = list(lon = paris_lon, lat = paris_lat),
+                                 zoom = 10, style = "carto-positron",title = "Individual factor map with clusters kmeans on PCA data"))
+
+fig_cluster_pca
+
+
+```
+
+
+```{r}
+df_clusters <- data.frame(
+  latitude = Position[,2],
+  longitude = Position[,1],
+  cluster = as.factor(clusters_kmean_raw_sorted)
+)
+
+fig_cluster_raw <- plot_ly(data = df_clusters, x = ~longitude, y = ~latitude, type = "scattermapbox",
+                           color = ~cluster, colors = c("red", "blue", "chartreuse2"),
+                           marker = list(size = 15), zoom = 10, text = ~cluster,
+                           hoverinfo = "text") %>%
+                   layout(mapbox = list(center = list(lon = paris_lon, lat = paris_lat),
+                                 zoom = 10, style = "carto-positron"))
+
+fig_cluster_raw
+
+```
+
+On remarque qu'il n'y a presque aucun changement entre les deux cartographies, que ce soit pour les clusters faits sur les données PCA, ou les clusters faits sur les données brutes. Ceci nous donne le même résultat qu'obtenu par la table de contingence. 
+
+Note : au contraire, on observe de grandes différences? J'aurais dit : On remarque de grandes différences; Selon une analyse humaine (cluster bien défini par région/le long de la SEine/par quartier résidentiels), on en vient donc à la conclusion que le Kmeans marche beaucoup mieux sur les données PCA.
+
+## Que valent ces 3 clusters Kmeans?
+
+```{r}
+
+for (i in 1:K) {
+  indice <- which(clusters_pca == i)
+  data_subset <- loading[indice, ]
+  bp <- boxplot(data_subset, 
+                col = "white", border = "black", median.col = "red",
+                staplewex = 0, notch = FALSE, outline = FALSE,
+                names = rep("", ncol(data_subset)))
+  
+  abline(v = seq(1, ncol(loading), length.out = 8), col = "purple", lty = "dotted")
+  
+  
+  title <- paste("Boxplot pour le cluster", i)
+  ticks <- seq(0, 168, by = 5)
+  title(main = title, cex.main = 1.25)
+  axis(1, at = ticks, labels = labels, cex.axis = 1.25)
+  labels <- seq(0, 168, by = 5)
+  mtext("Time", side = 1, line = 2, cex = 1.5)
+  mtext("Loading", side = 2, line = 2, cex = 1.5)
+}
+```
+
+On obtient des différences signifactives pour les 3 clusters : 
+- Clust n°1 : Vide le soir et le matin, plein dans l'après-midi
+- Clust n°2 : Souvent vide en général, quasiment tout le temps vide de 8h à 18h.
+- Clust n°3 : Souvent plein en général, quasiment tout le temps plein de 21h à 8h.
+
+# Agglomerative Clustering
+
+```{r}
+ac <- hclust(dist(velib_PCA_reduced), method = "ward.D2")
+
+#Nombre optimal de clusters en utilisant la méthode du coude
+fviz_nbclust(velib_PCA_reduced, FUN = hcut, method = "wss") + theme_minimal()
+```
+
+La méthode du coude nous suggere de prendre 4 clusters.
+
+
+```{r}
+
+#On prend 4 clusters
+K <- 4
+
+ac <- hclust(dist(velib_PCA_reduced), method = "ward.D2")
+
+#On trace un dendrogramme
+dend <- as.dendrogram(ac)
+plot(dend,horiz =FALSE)
+
+#Seuil pour obtenir K=4 classes
+
+max_d <- 0.5 * (ac$height[length(ac$height) - K] + ac$height[length(ac$height) - K + 1])
+
+abline(h = max_d, col = "red")
+title("Dendrogram with Ward linkage")
+```
+
+On voit bien les 4 clusters
+
+```{r}
+palette <- colorRampPalette(c("cornflowerblue", "gold","chartreuse2","red"))(K)
+palette
+
+
+ac_ss <- hclust(dist(velib_PCA_reduced[seq(1, nrow(velib_PCA_reduced), by = 10), ]), method = "ward.D2")
+#Découpage de l'arbre en K clusters
+clusters_ac_ss <- cutree(ac_ss, k = K)
+
+ac <- hclust(dist(velib_PCA_reduced), method = "ward.D2")
+#Découpage de l'arbre en K clusters
+clusters_ac <- cutree(ac, k = K)
+
+velib_PCA_reduced_subset <- velib_PCA_reduced[seq(1, nrow(velib_PCA_reduced), by = 10), ]
+
+#Sur l'échantillon réduit
+g1=ggplot(velib_PCA_reduced_subset, aes(x = velib_PCA_reduced_subset[,1], y = velib_PCA_reduced_subset[,2], color = as.factor(clusters_ac_ss))) +
+  geom_point(size = 1) +
+  scale_color_manual(values = palette) +
+  labs(title = "Scatter plot with clusters : données réduites") +
+  theme_minimal()
+
+#Données complètes
+g2=ggplot(velib_PCA_reduced, aes(x = velib_PCA_reduced[,1], y = velib_PCA_reduced[,2], color = as.factor(clusters_ac))) +
+  geom_point(size = 1) +
+  scale_color_manual(values = palette) +
+  labs(title = "Scatter plot with clusters : données complètes") +
+  theme_minimal()
+
+grid.arrange(g1,g2)
+```
+
+```{r}
+#On fait sur loading
+
+palette <- colorRampPalette(c("cornflowerblue", "gold","chartreuse2","red"))(K)
+palette
+
+# Clustering sur un échantillon réduit
+ac_ss <- hclust(dist(loading[seq(1, nrow(loading), by = 10), ]), method = "ward.D2")
+clusters_ac_ss <- cutree(ac_ss, k = K)
+
+# Clustering sur l'ensemble des données
+ac <- hclust(dist(loading), method = "ward.D2")
+clusters_ac_raw <- cutree(ac, k = K)
+
+#Sur l'échantillon réduit
+g1=ggplot(velib_PCA_reduced_subset, aes(x = velib_PCA_reduced_subset[,1], y = velib_PCA_reduced_subset[,2], color = as.factor(clusters_ac_ss))) +
+  geom_point(size = 1) +
+  scale_color_manual(values = palette) +
+  labs(title = "Scatter plot with clusters : données réduites") +
+  theme_minimal()
+
+#Données complètes
+g2=ggplot(velib_PCA_reduced, aes(x = velib_PCA_reduced[,1], y = velib_PCA_reduced[,2], color = as.factor(clusters_ac_raw))) +
+  geom_point(size = 1) +
+  scale_color_manual(values = palette) +
+  labs(title = "Scatter plot with clusters : données complètes") +
+  theme_minimal()
+
+grid.arrange(g1,g2)
+
+```
+
+
+
+```{r}
+#Fonction pour faire correspondre les classes
+matchClasses <- function(classif1, classif2) {
+  cm <- table(classif1, classif2)
+  K <- nrow(cm)
+  a <- numeric(K)
+  b <- numeric(K)
+  
+  for (j in 1:K) {
+    for (i in 1:K) {
+      if (a[j] < cm[i, j]) {
+        a[j] <- cm[i, j]
+        b[j] <- i
+      }
+    }
+  }
+  
+  table <- cm
+  for (i in 1:K) {
+    table[, b[i]] <- cm[, i]
+  }
+  
+  clusters <- classif2
+  n <- length(classif2)
+  for (i in 1:n) {
+    for (j in 1:K) {
+      if (classif2[i] == j) {
+        clusters[i] <- b[j]
+      }
+    }
+  }
+  
+  return(list(table, clusters))
+}
+
+#On calcule les classes correspondantes
+result <- matchClasses(clusters_ac, clusters_ac_raw)
+
+cm <- result[[1]]
+heatmap(cm, main="Matrice de confusion",
+        xlab="With the kmeans algorithm on PCA",
+        ylab="With the kmeans algorithm on complete data")
+```
+
+```{r}
+df_clusters_pca <- data.frame(
+  latitude = Position[,2],
+  longitude = Position[,1],
+  cluster = as.factor(clusters_ac)
+)
+
+fig_cluster_pca2 <- plot_ly(data = df_clusters_pca, x = ~longitude, y = ~latitude, type = "scattermapbox",
+                    color = ~cluster, colors = c("cornflowerblue", "gold","chartreuse2","red"),
+                    marker = list(size = 15), zoom = 10, text = paste("Loading:", round(data24h, 2)),
+                    hoverinfo = "text") %>%
+            layout(mapbox = list(center = list(lon = paris_lon, lat = paris_lat),
+                                 zoom = 10, style = "carto-positron",title = "Individual factor map with clusters CAH on PCA data"))
+
+
+
+fig_cluster_pca2 <- fig_cluster_pca2 %>% layout(showlegend = TRUE)
+fig_cluster_pca2
+
+```
+
+
+```{r}
+result <- matchClasses(clusters_ac, clusters_ac_raw)
+clusters_ac_raw_sorted <- result[[2]]
+
+df_clusters_pca <- data.frame(
+  latitude = Position[,2],
+  longitude = Position[,1],
+  cluster = as.factor(clusters_ac_raw_sorted)
+)
+
+fig_cluster_ac_raw <- plot_ly(data = df_clusters_pca, x = ~longitude, y = ~latitude, type = "scattermapbox",
+                    color = ~cluster, colors = c("cornflowerblue", "gold","chartreuse2","red"),
+                    marker = list(size = 15), zoom = 10, text = paste("Loading:", round(data24h, 2)),
+                    hoverinfo = "text") %>%
+            layout(mapbox = list(center = list(lon = paris_lon, lat = paris_lat),
+                                 zoom = 10, style = "carto-positron",title = "Individual factor map with clusters CAH on PCA data"))
+
+
+
+fig_cluster_ac_raw <- fig_cluster_ac_raw %>% layout(showlegend = TRUE)
+fig_cluster_ac_raw
+
+```
+
+Pareil ici peu de différences dans l'ensemble, sauf en périphérie !
+
+# Gaussian Mixture Models
+
+```{r}
+library(mclust)
+```
+
+
+```{r}
+velib_PCA_reduced = C[,1:5]
+gmm_model <- Mclust(velib_PCA_reduced, G = K)
+
+#df_gmm <- velib_PCA_reduced
+#df_gmm$cluster<- as.factor(predict(gmm_model)$classification)
+```
+
+
+```{r}
+resBICall = mclustBIC(velib_PCA_reduced, G=2:12)
+summary(resBICall)
+
+resBICall
+
+resBICall = Mclust(velib_PCA_reduced, G=2:12)
+summary(resBICall)
+
+fviz_mclust(resBICall, what="BIC")
+```
+
+
+```{r}
+options(repr.plot.width = 13, repr.plot.height = 6)
+
+K = length(resBICall$parameters$mean[,][1,])
+model_name = resBICall$parameters$variance$modelName
+palette <- colorRampPalette(c("red", "blue", "green", "yellow"))(K)
+
+resBIC = Mclust(velib_PCA_reduced, G=K, modelNames = model_name)
+fviz_cluster(resBIC, data=velib_PCA_reduced, ellipse.type="norm", geom="point")
+
+# --- #
+
+aux = data.frame(
+    label = paste("Cluster", resBIC$classification, sep=""), 
+    proba = apply(resBIC$z, 1, max))
+
+p1 = ggplot(aux, aes(x=label, y=proba)) + 
+    geom_boxplot(colour=palette, fill=palette, alpha=.2)
+p2 = fviz_cluster(resBIC, data=velib_PCA_reduced, ellipse.type="norm", geom="point") +
+    ggtitle("") + theme(legend.position = "none")
+
+grid.arrange(p1, p2, ncol = 2)
+```
+
+```{r}
+clusters_gmm <- resBIC$classification
+
+palette <- colorRampPalette(c("cornflowerblue", "gold","chartreuse2","red"))(K)
+
+df_clusters_gmm <- data.frame(
+  latitude = Position[,2],
+  longitude = Position[,1],
+  cluster = as.factor(clusters_gmm)
+)
+
+fig_cluster_gmm <- plot_ly(data = df_clusters_gmm, x = ~longitude, y = ~latitude, type = "scattermapbox",
+                    color = ~cluster, colors = palette,
+                    marker = list(size = 15), zoom = 10, text = paste("Loading:", round(data24h, 2)),
+                    hoverinfo = "text") %>%
+            layout(mapbox = list(center = list(lon = paris_lon, lat = paris_lat),
+                                 zoom = 10, style = "carto-positron",title = "Individual factor map with clusters GMM on PCA data"))
+
+
+
+fig_cluster_gmm <- fig_cluster_gmm %>% layout(showlegend = TRUE)
+fig_cluster_gmm
+```
+# on voit des clusters bien définis (cluster n°2, n°3), d'autres moins (n°4)..
+
+```{r}
+resICLall_1 = mclustICL(velib_PCA_reduced, G=2:12)
+summary(resICLall_1)
+
+# --- #
+
+resICLall_2 = Mclust(velib_PCA_reduced, G=2:12)
+summary(resICLall_2)
+```
+# note : resICLall_2 ne montre pas le modèle idéal pour l'ICL mais bien celui pour le BIC, choisir celui qui apparaît sur le plot ci-dessous.
+```{r}
+plot(resICLall_1)
+```
+
+
+```{r}
+options(repr.plot.width = 13, repr.plot.height = 6)
+
+K = 7
+model_name = "VVE"
+palette <- colorRampPalette(c("red", "blue", "green", "gold"))(K)
+
+resICL = Mclust(velib_PCA_reduced, G=K, modelNames=model_name)
+fviz_cluster(resICL, data=velib_PCA_reduced, ellipse.type="norm", geom="point")
+
+# --- #
+
+aux = data.frame(
+    label = paste("Cl", resICL$classification, sep=""), 
+    proba = apply(resICL$z, 1, max))
+
+p1 = ggplot(aux, aes(x=label, y=proba)) + geom_boxplot(colour=palette, fill=palette, alpha=.4)
+p2 = fviz_cluster(resICL, data=velib_PCA_reduced, ellipse.type="norm", geom="point") +
+    ggtitle("") + theme(legend.position = "none")
+
+grid.arrange(p1, p2, ncol = 2)
+```
+
+```{r}
+clusters_gmm_icl <- resICL$classification
+
+(clusters_gmm_icl)
+
+hilltop <- Coord$bonus
+
+hilltop
+
+palette <- colorRampPalette(c("cornflowerblue", "gold","chartreuse2","red"))(K)
+
+df_clusters_gmm_icl <- data.frame(
+  latitude = Position[,2],
+  longitude = Position[,1],
+  cluster = as.factor(clusters_gmm_icl)
+)
+
+fig_cluster_gmm_icl <- plot_ly(data = df_clusters_gmm_icl, x = ~longitude, y = ~latitude, type = "scattermapbox",
+                    color = ~cluster, colors = palette,
+                    marker = list(size = 7), zoom = 10, text = paste("Loading:", round(data24h, 2)),
+                    hoverinfo = "text") %>%
+            layout(mapbox = list(center = list(lon = paris_lon, lat = paris_lat),
+                                 zoom = 10, style = "carto-positron",title = "Individual factor map with clusters GMM on PCA data"))
+
+
+
+fig_cluster_gmm_icl <- fig_cluster_gmm_icl %>% layout(showlegend = TRUE)
+fig_cluster_gmm_icl
+```
+
+```{r}
+for (i in 1:K) {
+  indice <- which(clusters_gmm_icl == i)
+  data_subset <- loading[indice, ]
+  bp <- boxplot(data_subset, 
+                col = "white", border = "black", median.col = "red",
+                staplewex = 0, notch = FALSE, outline = FALSE,
+                names = rep("", ncol(data_subset)))
+  
+  abline(v = seq(1, ncol(loading), length.out = 8), col = "purple", lty = "dotted")
+  
+  
+  title <- paste("Boxplot pour le cluster", i)
+  ticks <- seq(0, 168, by = 5)
+  labels <- seq(0, 168, by = 5)
+  title(main = title, cex.main = 1.25)
+  axis(1, at = ticks, labels = labels, cex.axis = 1.25)
+  mtext("Time", side = 1, line = 2, cex = 1.5)
+  mtext("Loading", side = 2, line = 2, cex = 1.5)
+} # faire en sorte que ordonnée fixe
+```
+
+
+# Cluster 1 : quartiers rédientiels (classe moyenne?) très déchargés de 8h à 18h(~0 de loading), un peu plus rechargés de 18h à 8h (~0.5 de loading)
+# Cluster 2 : on retrouve beaucoup de points d'intérêt, lieux de divertissements (tour eiffel, bercy, bastille) -> les gens s'y rendent plus qu'à d'autres endroits, ils y posent donc leur vélo en plus grand nombre : les stations plus souvent chargées
+# Cluster 3 : tourisme + études + gare : souvent chargés la journée (~0.2 de loading), plus déchargés en soirée et la nuit (~ 0.8/0.9)
+# Cluster 4 : bizarre, pas de tendance globale du tout.
+# Cluster 5 : champs élysées, opéra (zones d'intérêt, commerciales) : très chargé la journée, très déchargé le soir/nuit et le week-end -> surutilisé.
+# Cluster 6 : cluster regroupant beaucoup de stations en périphérie de Paris. Variance conséquente, mais stations en général déchargées (<0.5).
+# Cluster 7 : Zones similaires au cluster 6, Stations délaissées : peu de variance, pas de chargement au dessus de 0.4. 
+
+# On peut trouver une bonne explication pour tous les clusters sauf le 4; beaucoup de variance, loading quasi tout le temps à 0.5... pas de comportement distinctif. On ne peut pas extraire d'information du cluster 4. De plus, les cluster 6 et 7 se ressemblent beaucoup. On va donc essayer de ""supprimer"" deux clusters.
+
+# GMM avec 5 clusters :
+
+```{r}
+options(repr.plot.width = 13, repr.plot.height = 6)
+
+K = 5
+model_name = "VVE" # VVE semble être le meilleur paramètre selon BIC et ICL. On va donc garder ICL pour ce modèle.
+palette <- colorRampPalette(c("red", "blue", "green", "gold"))(K)
+
+resICL = Mclust(velib_PCA_reduced, G=K, modelNames=model_name)
+fviz_cluster(resICL, data=velib_PCA_reduced, ellipse.type="norm", geom="point")
+
+# --- #
+
+aux = data.frame(
+    label = paste("Cl", resICL$classification, sep=""), 
+    proba = apply(resICL$z, 1, max))
+
+p1 = ggplot(aux, aes(x=label, y=proba)) + geom_boxplot(colour=palette, fill=palette, alpha=.4)
+p2 = fviz_cluster(resICL, data=velib_PCA_reduced, ellipse.type="norm", geom="point") +
+    ggtitle("") + theme(legend.position = "none")
+
+grid.arrange(p1, p2, ncol = 2)
+```
+
+```{r}
+clusters_gmm_icl <- resICL$classification
+
+palette <- colorRampPalette(c("cornflowerblue", "gold","chartreuse2","red"))(K)
+
+df_clusters_gmm_icl <- data.frame(
+  latitude = Position[,2],
+  longitude = Position[,1],
+  cluster = as.factor(clusters_gmm_icl)
+)
+
+fig_cluster_gmm_icl <- plot_ly(data = df_clusters_gmm_icl, x = ~longitude, y = ~latitude, type = "scattermapbox",
+                    color = ~cluster, colors = palette,
+                    marker = list(size = 7), zoom = 10, text = paste("Loading:", round(data24h, 2)),
+                    hoverinfo = "text") %>%
+            layout(mapbox = list(center = list(lon = paris_lon, lat = paris_lat),
+                                 zoom = 10, style = "carto-positron",title = "Individual factor map with clusters GMM on PCA data"))
+
+
+
+fig_cluster_gmm_icl <- fig_cluster_gmm_icl %>% layout(showlegend = TRUE)
+fig_cluster_gmm_icl
+```
+
+```{r}
+for (i in 1:K) {
+  indice <- which(clusters_gmm_icl == i)
+  data_subset <- loading[indice, ]
+  bp <- boxplot(data_subset, 
+                col = "white", border = "black", median.col = "red",
+                staplewex = 0, notch = FALSE, outline = FALSE,
+                names = rep("", ncol(data_subset)))
+  
+  abline(v = seq(1, ncol(loading), length.out = 8), col = "purple", lty = "dotted")
+  
+  
+  title <- paste("Boxplot pour le cluster", i)
+  ticks <- seq(0, 168, by = 5)
+  labels <- seq(0, 168, by = 5)
+  title(main = title, cex.main = 1.25)
+  axis(1, at = ticks, labels = labels, cex.axis = 1.25)
+  mtext("Time", side = 1, line = 2, cex = 1.5)
+  mtext("Loading", side = 2, line = 2, cex = 1.5)
+} # faire en sorte que ordonnée fixe
+```
+
+# Silhouette score ? Pas trouvé comment faire en R, mais on n'a pas fait en TP je crois?
+
+### MCA
+
+```{r}
+loading
+```
+```{r}
+loading_hill <- loading
+loading_hill$hill <- Coord$bonus
+```
+
+
+```{r}
+res.mca <- MCA(loading_hill, graph = FALSE)
+```
+
+```{r}
+res.ca <- CA(loading_hill, graph = FALSE)
+```
+
+```{r}
+#on calcule la matrice de confusion
+cm <- table(clusters_pca, clusters_gmm)
+clusters_kmean_gmm_sorted <- clusters_gmm[order(clusters_pca)]
+
+print(cm)
+image(cm, main = "Matrice de confusion", xlab = "Avec l'algo kmeans PCA", 
+      ylab = "Avec l'algo kmeans sur les données complètes")
+
+axis(1, at = seq_along(unique(clusters_pca)), labels = sort(unique(clusters_pca)))
+axis(2, at = seq_along(unique(clusters_raw)), labels = sort(unique(clusters_raw)))
+```
+
+# Variances entre clusters. Garder les mêmes couleurs entre clusters.
