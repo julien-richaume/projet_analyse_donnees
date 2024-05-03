@@ -1,6 +1,8 @@
 ---
 title: "Notebook_R"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 date: "2024-04-18"
 ---
 
@@ -359,7 +361,29 @@ pc2 <- C[, 2]
 
 plot(pc1, pc2, xlim = c(-15, 21), ylim = c(-15, 15), xlab = "Composante principale 1", ylab = "Composante principale 2", main = "Carte factorielle des individus - ACP")
 text(pc1, pc2, ".", cex = 1)  
+
 ```
+
+```{r}
+#On affiche la qualité de représentation des variables : comment les axes permettent d'expliquer les variables
+q1=fviz_pca_var(pca, col.var="cos2",repel=TRUE,gradient.cols=c("#00afbb","red","yellow"),label="none")
+
+#On affiche la contribution des variables aux axes
+
+c1=fviz_pca_var(pca,col.var="contrib",repel=TRUE,gradient.cols=c("#00afbb","red","yellow"),label="none")
+grid.arrange(q1,c1)
+
+```
+```{r}
+#On affiche la qualité de représentation et la contribution des individus
+
+q2=fviz_pca_ind(pca, col.ind="cos2",geom=c("point"),gradient.cols=c("#00afbb","red","yellow"))
+
+c2=fviz_pca_ind(pca, col.ind="contrib",geom=c("point"),gradient.cols=c("#00afbb","red","yellow"))
+grid.arrange(q2,c2)
+```
+
+
 
 # Clustering
 
