@@ -861,6 +861,44 @@ fig_cluster_pca2
 
 
 ```{r}
+#Fonction pour faire correspondre les classes
+matchClasses <- function(classif1, classif2) {
+  cm <- table(classif1, classif2)
+  K <- nrow(cm)
+  a <- numeric(K)
+  b <- numeric(K)
+  
+  for (j in 1:K) {
+    for (i in 1:K) {
+      if (a[j] < cm[i, j]) {
+        a[j] <- cm[i, j]
+        b[j] <- i
+      }
+    }
+  }
+  
+  table <- cm
+  for (i in 1:K) {
+    table[, b[i]] <- cm[, i]
+  }
+  
+  clusters <- classif2
+  n <- length(classif2)
+  for (i in 1:n) {
+    for (j in 1:K) {
+      if (classif2[i] == j) {
+        clusters[i] <- b[j]
+      }
+    }
+  }
+  
+  return(list(table, clusters))
+}
+
+```
+
+
+```{r}
 result <- matchClasses(clusters_ac, clusters_ac_raw)
 clusters_ac_raw_sorted <- result[[2]]
 
@@ -1586,13 +1624,33 @@ for (i in 1:K){
 
 ```{r}
 #on calcule la matrice de confusion
-cm <- table(clusters_mca, clusters_raw)
+cm_mca <- table(clusters_mca, clusters_raw)
 clusters_kmean_raw_sorted <- clusters_raw[order(clusters_mca)]
 
-print(cm)
-image(cm, main = "Matrice de confusion",
+print(cm_mca)
+image(cm_mca, main = "Matrice de confusion",
       xlab = "Avec l'algo kmeans MCA",
       ylab = "Avec l'algo kmeans sur les données complètes")
 
 
 ```
+
+```{r}
+res.ca <- CA(cm_mca)
+
+
+# column contributions
+res.ca$col$contrib
+
+# row contributions
+res.ca$row$contrib
+```
+
+```{r}
+# column cos2 similarities
+res.ca$col$cos2
+
+# row cos2 similarities
+res.ca$row$cos2
+```
+
