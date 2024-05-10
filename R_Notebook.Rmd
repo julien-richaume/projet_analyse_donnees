@@ -573,7 +573,12 @@ kmeans_model <- kmeans(velib_PCA_reduced, centers=4, nstart=10)
 silhouette_vals <- silhouette(kmeans_model$cluster, dist(velib_PCA_reduced))
 p3=fviz_silhouette(silhouette_vals, main="Silhouette for k=4")
 
-grid.arrange(p1,p2,p3,ncol=3)
+#k=5
+kmeans_model <- kmeans(velib_PCA_reduced, centers=5, nstart=10)
+silhouette_vals <- silhouette(kmeans_model$cluster, dist(velib_PCA_reduced))
+p4=fviz_silhouette(silhouette_vals, main="Silhouette for k=5")
+
+grid.arrange(p1,p2,p3, p4,ncol=2, nrow=2)
 ```
 
 Ce graphe silouhette confirme les 3 clusters choisis à la méthode précédente: on a moins de valeurs négatives, les pics dépassent tous la moyenne (ligne rouge), qui est d'ailleurs la plus haute. On voit donc que 3 clusters est le meilleur choix pour Silhouette. 
@@ -590,7 +595,7 @@ Nous choisissons arbitrairement 4 clusters pour la suite.
 #On garde donc 4 clusters
 K = 4
 
-palette = c("#8dd3c7", "#bebada", "#db564d", "#64ade8", "#fdb462", "#b3de69", "#fccde5", "#d9d9d9", "#bc80bd")
+palette = c("#8dd3c7", "#ffffb3", "#db564d", "#64ade8", "#fdb462", "#b3de69", "#fccde5", "#d9d9d9", "#bc80bd")
 
 #Sur le jeu de données réduit
 kmeans_pca <- kmeans(velib_PCA_reduced, centers = K, nstart = 10)
@@ -664,7 +669,7 @@ df_clusters <- data.frame(
 )
 
 fig_cluster_pca <- plot_ly(data = df_clusters, x = ~longitude, y = ~latitude, type = "scattermapbox",
-                           color = ~cluster, colors = palette,
+                           color = ~cluster, colors = palette[1:K],
                            marker = list(size = 7), zoom = 10000, text = ~cluster,
                            hoverinfo = "text") %>%
   layout(mapbox = list(center = list(lon = paris_lon, lat = paris_lat),
@@ -685,7 +690,7 @@ df_clusters <- data.frame(
 )
 
 fig_cluster_raw <- plot_ly(data = df_clusters, x = ~longitude, y = ~latitude, type = "scattermapbox",
-                           color = ~cluster, colors = palette,
+                           color = ~cluster, colors = palette[1:K],
                            marker = list(size = 7), zoom = 10, text = ~cluster,
                            hoverinfo = "text") %>%
                    layout(mapbox = list(center = list(lon = paris_lon, lat = paris_lat),
@@ -706,7 +711,7 @@ for (i in 1:K) {
   indice <- which(clusters_pca == i)
   data_subset <- loading[indice, ]
   bp <- boxplot(data_subset, 
-                col = palette[i], border = "black", median.col = "red",
+                col = (palette[1:K])[i], border = "black", median.col = "red",
                 staplewex = 0, notch = FALSE, outline = FALSE,
                 names = rep("", ncol(data_subset)))
   
@@ -765,7 +770,7 @@ ac <- hclust(dist(velib_PCA_reduced), method = "ward.D2")
 #On trace un dendrogramme
 fviz_dend(ac,k=K)
 
-title("Dendrogram with Ward linkage")
+# title("Dendrogram with Ward linkage") # ne marche pas
 ```
 
 On voit bien les 4 clusters, chaque couleur correspond à un cluster.
@@ -774,7 +779,7 @@ On voit bien les 4 clusters, chaque couleur correspond à un cluster.
 
 
 ```{r}
-palette = c("#8dd3c7", "#bebada", "#db564d", "#64ade8", "#fdb462", "#b3de69", "#fccde5", "#d9d9d9", "#bc80bd")
+palette = c("#8dd3c7", "#ffffb3", "#db564d", "#64ade8", "#fdb462", "#b3de69", "#fccde5", "#d9d9d9", "#bc80bd")
 
 
 ac <- hclust(dist(velib_PCA_reduced), method = "ward.D2")
@@ -793,7 +798,7 @@ g2
 
 ```{r}
 #On fait sur loading
-palette = c("#8dd3c7", "#bebada", "#db564d", "#64ade8", "#fdb462", "#b3de69", "#fccde5", "#d9d9d9", "#bc80bd")
+palette = c("#8dd3c7", "#ffffb3", "#db564d", "#64ade8", "#fdb462", "#b3de69", "#fccde5", "#d9d9d9", "#bc80bd")
 
 # Clustering sur l'ensemble des données
 ac <- hclust(dist(loading), method = "ward.D2")
@@ -808,7 +813,7 @@ g2=ggplot(velib_PCA_reduced, aes(x = velib_PCA_reduced[,1], y = velib_PCA_reduce
 g2
 
 ```
-On voit encore une fois que les deux clustering sont similaires. On ne pert donc pas d'information en faisant une PCA.
+On voit encore une fois que les deux clustering sont similaires. On ne pert donc pas trop d'information en faisant une PCA.
 
 
 ## Matrice de Confusion pour les clusters CAH sur le jeu de données réduit et brutes.
@@ -841,7 +846,7 @@ df_clusters_pca <- data.frame(
 )
 
 fig_cluster_pca2 <- plot_ly(data = df_clusters_pca, x = ~longitude, y = ~latitude, type = "scattermapbox",
-                    color = ~cluster, colors = palette,
+                    color = ~cluster, colors = palette[1:K],
                     marker = list(size = 7), zoom = 10, text = paste("Loading:", round(data24h, 2)),
                     hoverinfo = "text") %>%
             layout(mapbox = list(center = list(lon = paris_lon, lat = paris_lat),
@@ -866,7 +871,7 @@ df_clusters_pca <- data.frame(
 )
 
 fig_cluster_ac_raw <- plot_ly(data = df_clusters_pca, x = ~longitude, y = ~latitude, type = "scattermapbox",
-                    color = ~cluster, colors = palette,
+                    color = ~cluster, colors = palette[1:K],
                     marker = list(size = 7), zoom = 10, text = paste("Loading:", round(data24h, 2)),
                     hoverinfo = "text") %>%
             layout(mapbox = list(center = list(lon = paris_lon, lat = paris_lat),
@@ -921,17 +926,17 @@ fviz_mclust(resBICall, what="BIC")
 ```
 
 Bic garde le modèle VVE (forme de la covariance : volumes différents, orientations égales et formes différentes)
-On garde aussi 10 classes (en regardant le max du BIC)
+On garde aussi 12 classes (en regardant le max du BIC)
 
 
-#Projection des 10 clusters sur les 2 premières composantes principales
+#Projection des 12 clusters sur les 2 premières composantes principales
 
 ```{r}
 options(repr.plot.width = 13, repr.plot.height = 6)
 
 K = length(resBICall$parameters$mean[,][1,])
 model_name = resBICall$parameters$variance$modelName
-palette = c("#8dd3c7", "#ffffb3", "#bebada", "#db564d", "#64ade8", "#fdb462", "#b3de69", "#fccde5", "#d9d9d9", "#bc80bd")
+palette = c("#8dd3c7", "#ffffb3", "#bebada", "#db564d", "#64ade8", "#fdb462", "#b3de69", "#fccde5", "#d9d9d9", "#bc80bd", "#589336", "#ae3f59")
 
 resBIC = Mclust(velib_PCA_reduced, G=K, modelNames = model_name)
 fviz_cluster(resBIC, data=velib_PCA_reduced, ellipse.type="norm", geom="point")
@@ -952,9 +957,9 @@ p2 = fviz_cluster(resBIC, data =velib_PCA_reduced, ellipse.type="norm", geom="po
 grid.arrange(p1, p2, ncol = 2)
 ```
 
-On observe pour chaque cluster le boxplot des probas d'appartenance de chaque individu. Par exemple le cluster est le mieux défini : la proba moyenne des individus est proche de 1 et la variance est faible, les individus sont donc tous quasiment certains d'appartenir à ce cluster, il y a peu de mal classés dans le n°3.
+On observe pour chaque cluster le boxplot des probas d'appartenance de chaque individu. Par exemple le cluster 5 est le mieux défini : la proba moyenne des individus est proche de 1 et la variance est faible, les individus sont donc tous quasiment certains d'appartenir à ce cluster, il y a peu de mal classés dans ce dernier.
 
-Au contraire, le cluster 5 a une grande variance est une moyenne de proba d'appartenance égale à 0.75, les individus sont donc moins certains d'appartenir à ce cluster.
+Au contraire, le cluster 9 a une grande variance est une moyenne de proba d'appartenance égale à 0.75, les individus sont donc moins certains d'appartenir à ce cluster.
 
 ## Projection des clusters sur la carte de Paris
 ```{r}
@@ -979,28 +984,29 @@ fig_cluster_gmm <- fig_cluster_gmm %>% layout(showlegend = TRUE)
 fig_cluster_gmm
 ```
 
+12 Clusters semble bien trop. On a de nombreux clusters qui ont une variance énorme, et qui ne semblent rien expliquer. Tentons un autre critère de sélection.
+
 ## Selection du modèle et du nombre de clusters : Avec ICL
 
 
 ```{r}
 resICLall_1 = mclustICL(velib_PCA_reduced, G=2:12, verbose = FALSE)
 summary(resICLall_1)
-
 ```
 
-Avec le critère ICL, on garde également le modèle VVE mais avec seulement 7 clusters.
+Avec le critère ICL, on garde également le modèle VVE mais avec seulement 6 clusters.
 
 ```{r}
 plot(resICLall_1)
 ```
 On retrouve bien le max d'ICL pour le modèle précédent.
 
-#Projection des 7 clusters sur les 2 premières composantes principales
+#Projection des 6 clusters sur les 2 premières composantes principales
 
 ```{r}
 options(repr.plot.width = 13, repr.plot.height = 6)
 
-K = 7
+K = 6
 model_name = "VVE"
 
 resICL = Mclust(velib_PCA_reduced, G=K, modelNames=model_name, verbose = FALSE)
@@ -1027,9 +1033,9 @@ p2 = fviz_cluster(resBIC, data =velib_PCA_reduced, ellipse.type="norm", geom="po
 grid.arrange(p1, p2, ncol = 2)
 ```
 
-Ici on voit que les clusters 2,5 et 7 sont ceux où les individus ont une plus grande probabilité d'appartenance. On remarque en général que tous les clusters sont bien définis car les moyennes sont hautes.
+Ici on voit que les clusters 2,3 et 5 sont ceux où les individus ont une plus grande probabilité d'appartenance. On remarque en général que tous les clusters sont bien définis car les moyennes sont hautes.
 
-## Projection des 7 clusters sur la carte de Paris
+## Projection des 6 clusters sur la carte de Paris
 
 
 ```{r}
@@ -1054,7 +1060,7 @@ fig_cluster_gmm_icl <- fig_cluster_gmm_icl %>% layout(showlegend = TRUE)
 fig_cluster_gmm_icl
 ```
 
-##Interprétation des 7 clusters
+##Interprétation des 6 clusters
 
 ```{r}
 for (i in 1:K) {
@@ -1079,15 +1085,18 @@ for (i in 1:K) {
 ```
 
 
-Cluster 1 : quartiers rédientiels (classe moyenne?) très déchargés de 8h à 18h(~0 de loading), un peu plus rechargés de 18h à 8h (~0.5 de loading)
-Cluster 2 : on retrouve beaucoup de points d'intérêt, lieux de divertissements (tour eiffel, bercy, bastille) -> les gens s'y rendent plus qu'à d'autres endroits, ils y posent donc leur vélo en plus grand nombre : les stations plus souvent chargées
-Cluster 3 : tourisme + études + gare : souvent chargés la journée (~0.2 de loading), plus déchargés en soirée et la nuit (~ 0.8/0.9)
-Cluster 4 : bizarre, pas de tendance globale du tout.
-Cluster 5 : champs élysées, opéra (zones d'intérêt, commerciales) : très chargé la journée, très déchargé le soir/nuit et le week-end -> surutilisé.
-Cluster 6 : cluster regroupant beaucoup de stations en périphérie de Paris. Variance conséquente, mais stations en général déchargées (<0.5).
-Cluster 7 : Zones similaires au cluster 6, Stations délaissées : peu de variance, pas de chargement au dessus de 0.4. 
 
-On peut trouver une bonne explication pour tous les clusters sauf le 4; beaucoup de variance, loading quasi tout le temps à 0.5... pas de comportement distinctif. On ne peut pas extraire d'information du cluster 4. De plus, les cluster 6 et 7 se ressemblent beaucoup. On va donc essayer de ""supprimer"" deux clusters.
+
+
+
+Cluster 1 : quartiers rédientiels (classe moyenne?) très déchargés de 8h à 18h(~0 de loading), un peu plus rechargés de 18h à 8h (~0.5 de loading)
+Cluster 2 : le long de la seine, tourisme + études + gare : souvent chargés la journée (~0.9 de loading), plus déchargés en soirée et la nuit (~ 0.2 de loading)
+Cluster 3 : bizarre, pas de tendance globale du tout.
+Cluster 4 : on retrouve beaucoup de points d'intérêt, lieux de divertissements (tour eiffel, bercy, bastille) -> les gens s'y rendent plus qu'à d'autres endroits, ils y posent donc leur vélo en plus grand nombre : les stations plus souvent chargées
+Cluster 5 : Zones similaires au cluster 6, Stations délaissées : peu de variance, pas de chargement au dessus de 0.4. 
+Cluster 6 : champs élysées, opéra (zones d'intérêt, commerciales) : très chargé la journée, très déchargé le soir/nuit et le week-end -> surutilisé.
+
+On peut trouver une bonne explication pour tous les clusters sauf le 3; beaucoup de variance, loading quasi tout le temps à 0.5... pas de comportement distinctif. On ne peut pas extraire d'information du cluster 3. De plus, les cluster 6 et 7 se ressemblent beaucoup. On va donc essayer de ""supprimer"" un cluster.
 
 
 
@@ -1117,7 +1126,7 @@ p2 = fviz_cluster(resICL, data=velib_PCA_reduced, ellipse.type="norm", geom="poi
 
 grid.arrange(p1, p2, ncol = 2)
 ```
-Ici on voit que le cluster n°2 est celui où les individus ont une plus grande probabilité d'appartenance. On remarque en général que tous les clusters sont bien définis car les moyennes sont hautes (on a par contre des variances plus grandes pour les autres clusters que le 2)
+Ici on voit que le cluster n°3 est celui où les individus ont une plus grande probabilité d'appartenance. On remarque en général que tous les clusters sont bien définis car les moyennes sont hautes (on a par contre des variances plus grandes pour les autres clusters que le 3)
 
 ## Projection des 5 clusters sur la carte de Paris
 
@@ -1174,6 +1183,7 @@ Cluster 3 : Plein en journée (8-18h, ~0.90 loading), plus vide la nuit (~0.1 lo
 Cluster 4 : Plutôt rempli en journée (8-18h, ~0.90 loading), plus vide la nuit et le week-end (~0.1 loading).
 Cluster 5 : Globalement peu rempli. (~0.1 loading) Comportement "chaotique".
 
+Note : L'ordre des clusters est sujet à changer, mais l'interprétation de ces derniers reste la même. Ainsi, on obtient 4 clusters très cohérents, et remplis d'informations distinctives, tandis qu'un cluster reste moins intéressant.
 
 ## Comparaison clustering GMM et Kmeans
 
@@ -1187,7 +1197,7 @@ image(cm, main = "Matrice de confusion",
 
 adjustedRandIndex(clusters_gmm_icl, clusters_pca)
 ```
-L'index ajusté vaut 0.26 ce qui montre que les deux clusterings ne correspondent pas beaucoup.
+L'index ajusté vaut 0.34 ce qui montre que les deux clusterings ne correspondent pas beaucoup.
 
 ## Comparaison clustering GMM et CAH
 
@@ -1201,16 +1211,14 @@ image(cm, main = "Matrice de confusion",
 adjustedRandIndex(clusters_gmm_icl, clusters_ac)
 
 ```
-L'index ajusté vaut 0.26 ce qui montre que les deux clusterings ne correspondent pas beaucoup.
+L'index ajusté vaut 0.32 ce qui montre que les deux clusterings ne correspondent pas beaucoup.
 
 
 --------------------------------
 #FIN INTERPRETATION EUGENIE 
 --------------------------------
 
-
-
-# MCA
+### MCA
 
 ```{r}
 seuils = list(
@@ -1245,29 +1253,346 @@ seuilsV4 = list(
 )
 
 loading_quali <- data.frame(sapply(loading, function(col) cut(col, breaks = c(-Inf, unlist(seuils), Inf), labels = c(names(seuils), 'Pleine'))))
-view(loading)
-view(loading_quali)
+#view(loading_quali)
 ```
 
 ```{r}
 res.mca <- MCA(loading_quali, graph = TRUE)
+
+fviz_mca_biplot(res.mca, repel=TRUE)
 ```
 
 ```{r}
-res.ca <- CA(loading_hill, graph = FALSE)
+fviz_mca_var(res.mca, choice="mca.cor", repel=TRUE)
 ```
+
+
+# Inutilisable : trop de variables ! Séparons les heures ainsi : 
+# Lundi jour : Lun-07 à Lun-21
+# Lundi nuit : Lun-22 à Mar-06
+
+```{r}
+X_quali <- data.frame(hill = Coord$bonus)
+X_quali <- X_quali %>% mutate(hill = case_when(X_quali$hill==0 ~ "Nohill",
+                                         X_quali$hill==1 ~ "Hill"))
+head(X_quali, n=11)
+```
+
+
+```{r}
+load = c('vide', 'moyen', 'chargé')
+
+for (i in 1:7){
+  i_debut_jour = (i-1)*24 + 1 + 7
+  i_fin_jour = i*24 - 2
+  
+  new_Col = rowMeans(loading[,i_debut_jour:i_fin_jour])
+  breaks = c(-0.1,quantile(new_Col, probs=c(1/3, 2/3)), 1.01)
+  newCol = cut(new_Col, breaks = breaks, labels = load)
+  colname = paste("Jour", i, sep="")
+  X_quali[[colname]] = newCol
+}
+head(X_quali)
+```
+
+```{r}
+len_X = 24 * 7
+
+for (i in 1:7){
+  i_debut_nuit = i*24 - 1 
+  if (i*24!=len_X){
+    i_fin_nuit = i*24 + 7
+    new_Col = rowMeans(loading[,i_debut_nuit:i_fin_nuit])
+  } else{
+    i_fin_nuit = (i*24 + 7) %% len_X
+    nuit_dimanche = group_by(loading[i_debut_nuit:len_X],loading[1:i_fin_nuit])
+    new_Col = rowMeans(nuit_dimanche)
+  }
+  breaks = c(-0.1,quantile(new_Col, probs=c(1/3, 2/3)), 1.01)
+  newCol = cut(new_Col, breaks = breaks, labels = load)
+  colname = paste("Nuit", i, sep="")
+  X_quali[[colname]] = newCol
+}
+
+head(X_quali)
+```
+On effectue ensuite la MCA sur ces données ci.
+
+```{r}
+summary(X_quali)
+X_quali$hill <- as.factor(X_quali$hill)
+```
+
+```{r}
+res.mca <- MCA(X_quali, graph = TRUE)
+```
+
+```{r}
+eig <- data.frame(res.mca$eig)
+
+tick = 1:length(eig$cumulative.percentage.of.variance)
+
+barplot(height = eig$cumulative.percentage.of.variance, names.arg = tick)
+abline(h = 70, col="red")
+```
+
+#Il faut garder 9 composantes pour garder 70% de la variance, 13 pour 80%
+
+```{r}
+fviz_cos2(res.mca, choice = "var", axes = 1:2)
+```
+# Toutes les variables "moyen" sont mal représentées
+
+```{r}
+fviz_mca_ind(res.mca, col.ind = "cos2",
+             gradient.cols = c("blue", "yellow", "red"), label=FALSE)
+
+
+# Cos2 of individuals on Dim.1 and Dim.2
+fviz_cos2(res.mca, choice="ind", axes=1:2)
+```
+
+## Interprétation des dimensions de la MCA
+
+```{r}
+fviz_contrib(res.mca, choice="var", axes=1, top=20)
+
+# Contributions to dimension 2
+fviz_contrib(res.mca, choice="var", axes=2, top=20)
+# dim 3
+fviz_contrib(res.mca, choice="var", axes=3, top=20)
+# dim 4 
+fviz_contrib(res.mca, choice="var", axes=4, top=20)
+```
+
+# Contrib dim 1 : Variables chargé/vide
+# Contrib dim 2 : Jours de la semaine chargé + Nuits de la semaine vide
+# Contrib dim 3 : Jours moyen, Hill
+# Contrib dim 4 : Nuit la semaine moyen 
+
+```{r}
+fviz_mca_var(res.mca, col.var = "contrib",
+             gradient.cols = c("blue", "yellow", "red"), 
+             repel = TRUE)
+```
+# Visualisation des stations en fonction de leur chargement pour un jour donné, dans le plan principal de la MCA    
+
+# Jours de la semaine
+
+```{r}
+fviz_mca_ind(res.mca, 
+             label = "none", # hide individual labels
+             habillage = "Jour1", # color by groups 
+             palette = c("#87e364", "#ffd338", "#eb5656"),
+             #addEllipses = TRUE, ellipse.type = "confidence",
+             ) 
+
+fviz_mca_ind(res.mca, 
+             label = "none", # hide individual labels
+             habillage = "Jour2", # color by groups 
+             palette = c("#87e364", "#ffd338", "#eb5656"),
+             #addEllipses = TRUE, ellipse.type = "confidence", 
+            )
+```
+
+# Jours du week-end
+
+```{r}
+fviz_mca_ind(res.mca, 
+             label = "none", # hide individual labels
+             habillage = "Jour6", # color by groups 
+             palette = c("#87e364", "#ffd338", "#eb5656"),
+             #addEllipses = TRUE, ellipse.type = "confidence",
+             ) 
+
+fviz_mca_ind(res.mca, 
+             label = "none", # hide individual labels
+             habillage = "Jour7", # color by groups 
+             palette = c("#87e364", "#ffd338", "#eb5656"),
+             #addEllipses = TRUE, ellipse.type = "confidence",
+             )
+```
+
+# Visualisation des stations en fonction de leur hauteur, dans le plan principal de la MCA
+
+```{r}
+fviz_mca_ind(res.mca, 
+             label = "none", # hide individual labels
+             habillage = "hill", # color by groups 
+             palette = c("steelblue", "orange")
+            ) 
+
+```
+
+```{r}
+C <- as.data.frame(res.mca$ind$coord)
+velib_MCA_reduced <- C
+```
+
+### Clustering Kmeans sur les données MCA
+
+```{r}
+K=10
+Iintra=NULL
+for (k in 2:K)
+{
+  #On calcule l'inertie pour différentes valeurs de k
+  kmeans_model <- kmeans(velib_MCA_reduced, centers = k)
+  Iintra=c(Iintra,kmeans_model$tot.withinss)
+  
+}
+inertie_df=data.frame(K=2:10,Iintra=Iintra)
+ggplot(inertie_df,aes(x=K,y=Iintra))+geom_line()+geom_point()+ 
+  labs(x = "Nombre de clusters (k)", y = "Inertie") +
+  ggtitle("Dispersion de l'inertie en fonction de k")
+
+```
+# On garderait 3 clusters d'après la méthode du coude
+
+```{r}
+g1=fviz_nbclust(velib_MCA_reduced, stats::kmeans, method = "silhouette")
+g2=fviz_nbclust(velib_MCA_reduced, stats::kmeans, method = "wss")
+grid.arrange(g1,g2)
+```
+# La méthode silhouette propose 9 clusters mais cela paraît trop, et à partir de 2 clusters le score silhouette est quasi constant.
+
+```{r}
+options(repr.plot.width = 15, repr.plot.height = 6)
+
+#On teste pour plusieurs k différents
+
+#k=2
+kmeans_model <- kmeans(velib_MCA_reduced, centers=2, nstart=10)
+silhouette_vals <- silhouette(kmeans_model$cluster, dist(velib_MCA_reduced))
+p1=fviz_silhouette(silhouette_vals, main="Silhouette for k=2")
+
+#k=3
+kmeans_model <- kmeans(velib_MCA_reduced, centers=3, nstart=10)
+silhouette_vals <- silhouette(kmeans_model$cluster, dist(velib_MCA_reduced))
+p2=fviz_silhouette(silhouette_vals, main="Silhouette for k=3")
+
+#k=4
+kmeans_model <- kmeans(velib_MCA_reduced, centers=4, nstart=10)
+silhouette_vals <- silhouette(kmeans_model$cluster, dist(velib_MCA_reduced))
+p3=fviz_silhouette(silhouette_vals, main="Silhouette for k=4")
+
+#k=5
+kmeans_model <- kmeans(velib_MCA_reduced, centers=5, nstart=10)
+silhouette_vals <- silhouette(kmeans_model$cluster, dist(velib_MCA_reduced))
+p4=fviz_silhouette(silhouette_vals, main="Silhouette for k=5")
+
+grid.arrange(p1,p2,p3, p4,ncol=2, nrow=2)
+```
+# Comme vu précédemment, le score silhouette n'invalide pas de clusters en dessous de 5. Prenons arbitrairement K = 5 clusters. 
+
+```{r}
+#On garde donc 5 clusters
+K = 5
+
+palette = c("#8dd3c7", "#ffffb3", "#db564d", "#64ade8", "#fdb462", "#b3de69", "#fccde5", "#d9d9d9", "#bc80bd")
+
+#Sur le jeu de données réduit
+kmeans_mca <- kmeans(velib_MCA_reduced, centers = K, nstart = 10)
+
+#On obtient les clusters prédits
+clusters_mca <- kmeans_mca$cluster
+```
+
+```{r}
+print(velib_MCA_reduced)
+
+ggplot() + 
+  geom_point(aes(x=velib_MCA_reduced[,1], y=velib_MCA_reduced[,2], col = as.factor(clusters_mca)))+
+  scale_color_manual(values = palette) +
+  labs(x = "1ère composante principale", y = "2nde composante principale", title = paste("Individuals factor map - Couleur selon les clusters k-means - Jeu réduit"))
+```
+
+```{r}
+df_clusters <- data.frame(
+  latitude = Position[,2],
+  longitude = Position[,1],
+  cluster = as.factor(clusters_mca)
+)
+
+fig_cluster_mca <- plot_ly(data = df_clusters, x = ~longitude, y = ~latitude, type = "scattermapbox",
+                           color = ~cluster, colors = palette[1:K],
+                           marker = list(size = 7), zoom = 10000, text = ~cluster,
+                           hoverinfo = "text") %>%
+  layout(mapbox = list(center = list(lon = paris_lon, lat = paris_lat),
+                                 zoom = 10, style = "carto-positron",title = "Individual factor map with clusters kmeans on MCA data"))
+
+fig_cluster_mca
+```
+
+```{r}
+K = 5
+
+palette = c("#8dd3c7", "#ffffb3", "#db564d", "#64ade8", "#fdb462", "#b3de69", "#fccde5", "#d9d9d9", "#bc80bd")
+
+#Sur le jeu de données réduit
+kmeans_raw <- kmeans(loading, centers = K, nstart = 10)
+
+#On obtient les clusters prédits
+clusters_raw <- kmeans_raw$cluster
+```
+
+
+```{r}
+df_clusters <- data.frame(
+  latitude = Position[,2],
+  longitude = Position[,1],
+  cluster = as.factor(clusters_raw)
+)
+
+fig_cluster_raw <- plot_ly(data = df_clusters, x = ~longitude, y = ~latitude, type = "scattermapbox",
+                           color = ~cluster, colors = palette[1:K],
+                           marker = list(size = 7), zoom = 10000, text = ~cluster,
+                           hoverinfo = "text") %>%
+  layout(mapbox = list(center = list(lon = paris_lon, lat = paris_lat),
+                                 zoom = 10, style = "carto-positron",title = "Individual factor map with clusters kmeans on raw data"))
+
+fig_cluster_raw
+```
+
+
+```{r}
+##Interprétation des 5 clusters
+
+for (i in 1:K){
+  indice <- which(clusters_mca == i)
+  data_subset <- loading[indice, ]
+  bp <- boxplot(data_subset, 
+                col = palette[i], border = NULL, median.col = "red",
+                staplewex = 0, notch = FALSE, outline = FALSE,
+                names = rep("", ncol(data_subset)))
+  
+  abline(v = seq(1, ncol(loading), length.out = 8), col = "purple", lty = "dotted")
+  
+  
+  title <- paste("Boxplot pour le cluster", i)
+  ticks <- seq(0, 168, by = 5)
+  labels <- seq(0, 168, by = 5)
+  title(main = title, cex.main = 1.25)
+  axis(1, at = ticks, labels = labels, cex.axis = 1.25)
+  mtext("Time", side = 1, line = 2, cex = 1.5)
+  mtext("Loading", side = 2, line = 2, cex = 1.5)
+} # faire en sorte que ordonnée fixe
+```
+
+# De même que précedemment : On a 4 clusters bien ajustés, mais un cluster possède trop de variance, et n'est pas analysable.
+
+# Matrice de confusion
+
 
 ```{r}
 #on calcule la matrice de confusion
-cm <- table(clusters_pca, clusters_gmm)
-clusters_kmean_gmm_sorted <- clusters_gmm[order(clusters_pca)]
+cm <- table(clusters_mca, clusters_raw)
+clusters_kmean_raw_sorted <- clusters_raw[order(clusters_mca)]
 
 print(cm)
-image(cm, main = "Matrice de confusion", xlab = "Avec l'algo kmeans PCA", 
+image(cm, main = "Matrice de confusion",
+      xlab = "Avec l'algo kmeans MCA",
       ylab = "Avec l'algo kmeans sur les données complètes")
 
-axis(1, at = seq_along(unique(clusters_pca)), labels = sort(unique(clusters_pca)))
-axis(2, at = seq_along(unique(clusters_raw)), labels = sort(unique(clusters_raw)))
-```
 
-# Variances entre clusters. Garder les mêmes couleurs entre clusters.
+```
